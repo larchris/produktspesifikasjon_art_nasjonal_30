@@ -1,0 +1,85 @@
+@startuml
+' For wide diagrams, render with: plantuml -DPLANTUML_LIMIT_SIZE=16384 ...
+' The 'scale max' directive below caps the rendered output to prevent the
+' default PlantUML 4096px size limit from cropping the diagram.
+scale max 4000*4000
+
+title Arter av nasjonal forvaltningsinteresse - Ny datakilde - Objekttyper
+
+skinparam backgroundColor #F5F5F5
+skinparam shadowing false
+skinparam RoundCorner 6
+skinparam ArrowColor #6C8198
+skinparam wrapWidth 200
+skinparam class {
+  BackgroundColor #FBF2E8
+  BorderColor #9C8578
+  FontColor #2D201A
+  HeaderBackgroundColor #EFE1D6
+  HeaderFontColor #2D201A
+  AttributeIconSize 0
+}
+skinparam note {
+  BackgroundColor #FFFFFF
+  BorderColor #6C8198
+  FontColor #2D201A
+}
+skinparam stereotypeCBackgroundColor #EAD9CE
+skinparam stereotypeCBorderColor #9C8578
+skinparam stereotypeCFontColor #2D201A
+
+package "Objekttyper" {
+
+  class ArtForvaltningsinteresse <<featureType>> {
+    + datoFra [0..1] : Date
+    + datoTil [0..1] : Date
+    + geografiskPresisjon [0..1] : Integer
+    + aktivitet [0..*] : AktivitetKode
+    + antallObservasjoner [0..1] : Integer
+    + område [0..1] : GM_Surface
+    + artsgruppe [0..1] : Artsgruppe
+    + posisjon [0..1] : GM_Point
+    + verdikategori [0..1] : Verdikategori
+    + norskNavn [0..1] : NorskNavn
+    + vitenskapeligNavn [1] : VitenskapeligNavn
+    + rødlistekategori [0..1] : Rødlistekategori
+    + artnasjonalId [0..1] : CharacterString
+    + maksAntallIndivid [0..1] : Integer
+    + utvalgskriterier [0..*] : UtvalgskriteriumKode
+    + kriterium [0..1] : Utvalgskriterium
+    + fraMiljødirektoratet [1] : Boolean
+    + sensitivMaskert [1] : Boolean
+    + vitenskapeligNavnId [1] : Integer
+    + faktaark [1] : CharacterString
+  }
+
+  abstract class Fellesegenskaper_Art <<featureType>> {
+    + identifikasjon [1] : Identifikasjon
+    + kommune [0..*] : Kommunenummer
+    + datafangstdato [0..1] : Date
+  }
+
+  class Utvalgskriterium <<dataType>> {
+    + ansvarsart [0..1] : Boolean
+    + fredet [0..1] : Boolean
+    + fremmedArt [0..1] : Boolean
+    + prioritert [0..1] : Boolean
+    + annenSpesieltHensynskrevende [0..1] : Boolean
+    + spesielleØkologiskeFormer [0..1] : Boolean
+    + nærTruet [0..1] : Boolean
+    + hensynskrevende [0..1] : Boolean
+    + kritiskTruet [0..1] : Boolean
+    + sterktTruet [0..1] : Boolean
+    + sårbar [0..1] : Boolean
+    + datamangel [0..1] : Boolean
+  }
+
+  class Identifikasjon <<dataType>> {
+    + lokalId [1] : CharacterString
+    + navnerom [1] : CharacterString
+  }
+}
+
+  Fellesegenskaper_Art <|-- ArtForvaltningsinteresse
+
+@enduml

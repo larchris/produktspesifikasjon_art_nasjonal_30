@@ -1,0 +1,557 @@
+[
+  {
+    "name": "ArtForvaltningsinteresse",
+    "description": "Forekomster/observasjoner av et kriteriebasert utvalg arter som er spesielt viktig for biologisk mangfold, samt fremmede arter som er en trussel mot naturlig biologisk mangfold. Alt innhold hentes fra Artsdatabankens infrastruktur, basert på arten og nærmere definerte tekniske kvalitetskriterier (geografisk presisjon mv.).",
+    "attributes": [
+      {
+        "name": "datoFra",
+        "type": "Date",
+        "description": "Startdato for registreringen",
+        "cardinality": "0..1",
+        "taggedValues": {
+          "SOSI_navn": "DATO_FRA"
+        }
+      },
+      {
+        "name": "datoTil",
+        "type": "Date",
+        "description": "Sluttdato for registreringen",
+        "cardinality": "0..1",
+        "taggedValues": {
+          "SOSI_navn": "DATO_TIL"
+        }
+      },
+      {
+        "name": "geografiskPresisjon",
+        "type": "Integer",
+        "description": "Angis i hele meter og kan representere forskjellige forståelser av geografisk presisjon, avhengig av hvordan originaldata er etablert. Generelt for flater vil gjelde at presisjon er et uttrykk for observatørens oppfatning av hvor nøyaktig objektet er geografisk avgrenset/omsluttet på kart i forhold til de faktiske forhold i terrenget. Dette vil også gjelde punktdata i en rekke tilfeller. For punktdata er presisjonen avstanden (radius) mellom midtpunktkoordinatene for det observerte objektet og yttergrensa for det arealet (sirkelflaten) som punktet representerer.",
+        "cardinality": "0..1",
+        "taggedValues": {
+          "SOSI_navn": "GEOGR_PRESISJON"
+        }
+      },
+      {
+        "name": "aktivitet",
+        "type": "AktivitetKode",
+        "description": "angir type aktivitet som er knyttet til observasjonen/forekomsten. Er bare aktuelt for arter som er mobile og kan ha flere ulike aktiviteter, f.eks. fugl.",
+        "cardinality": "0..*",
+        "valueDomain": {
+          "kind": "codelist",
+          "listedValues": [
+            {
+              "value": "stasjonær",
+              "label": "stasjonær"
+            },
+            {
+              "value": "muligReproduksjon",
+              "label": "muligReproduksjon"
+            },
+            {
+              "value": "næringssøkende",
+              "label": "næringssøkende"
+            },
+            {
+              "value": "reproduksjon",
+              "label": "reproduksjon"
+            },
+            {
+              "value": "forflytting",
+              "label": "forflytting"
+            },
+            {
+              "value": "død",
+              "label": "død"
+            }
+          ],
+          "definition": "angir type aktivitet som er knyttet til observasjonen/forekomsten. Er bare aktuelt for arter som er mobile og kan ha flere ulike aktiviteter, f.eks. fugl."
+        }
+      },
+      {
+        "name": "antallObservasjoner",
+        "type": "Integer",
+        "description": "Antall observasjoner",
+        "cardinality": "0..1",
+        "taggedValues": {
+          "SOSI_navn": "ANTALL_OBSERVASJONER"
+        }
+      },
+      {
+        "name": "område",
+        "type": "GM_Surface",
+        "description": "objektets utstrekning - artsdata område, for eksempel",
+        "cardinality": "0..1"
+      },
+      {
+        "name": "artsgruppe",
+        "type": "Artsgruppe",
+        "description": "Angivelse av  hvilken artsgruppe arten tilhører",
+        "cardinality": "0..1",
+        "valueDomain": {
+          "kind": "codelist",
+          "listedValues": [
+            {
+              "value": "fugler",
+              "label": "fugler"
+            },
+            {
+              "value": "karplanter",
+              "label": "karplanter"
+            },
+            {
+              "value": "sopper",
+              "label": "sopper"
+            },
+            {
+              "value": "insekter",
+              "label": "insekter"
+            },
+            {
+              "value": "laver",
+              "label": "laver"
+            },
+            {
+              "value": "fisker",
+              "label": "fisker"
+            },
+            {
+              "value": "krepsdyr",
+              "label": "krepsdyr"
+            },
+            {
+              "value": "moser",
+              "label": "moser"
+            },
+            {
+              "value": "pattedyr",
+              "label": "pattedyr"
+            },
+            {
+              "value": "øvrigeDyr",
+              "label": "øvrigeDyr"
+            },
+            {
+              "value": "alger",
+              "label": "alger"
+            },
+            {
+              "value": "edderkoppdyr",
+              "label": "edderkoppdyr"
+            },
+            {
+              "value": "amfibierOgReptiler",
+              "label": "amfibierOgReptiler"
+            },
+            {
+              "value": "biller",
+              "label": "biller"
+            },
+            {
+              "value": "bløtdyr",
+              "label": "bløtdyr"
+            },
+            {
+              "value": "koralldyr",
+              "label": "koralldyr"
+            },
+            {
+              "value": "mangefotinger",
+              "label": "mangefotinger"
+            },
+            {
+              "value": "nebbmunner",
+              "label": "nebbmunner"
+            },
+            {
+              "value": "nettvinger",
+              "label": "nettvinger"
+            },
+            {
+              "value": "rettvinger",
+              "label": "rettvinger"
+            },
+            {
+              "value": "sekkedyr",
+              "label": "sekkedyr"
+            },
+            {
+              "value": "sommerfugler",
+              "label": "sommerfugler"
+            },
+            {
+              "value": "tovinger",
+              "label": "tovinger"
+            },
+            {
+              "value": "vepser",
+              "label": "vepser"
+            },
+            {
+              "value": "øyenstikkere",
+              "label": "øyenstikkere"
+            }
+          ],
+          "definition": "angir typen organisme i henhold til en forvaltningsmessig fornuftig inndeling",
+          "asDictionary": "false"
+        }
+      },
+      {
+        "name": "posisjon",
+        "type": "GM_Point",
+        "description": "sted som objektet eksisterer på - artsdata punkt, kan være enkeltobservasjoner eller registreringer",
+        "cardinality": "0..1"
+      },
+      {
+        "name": "verdikategori",
+        "type": "Verdikategori",
+        "description": "Angivelse av forvaltningskategori",
+        "cardinality": "0..1",
+        "valueDomain": {
+          "kind": "codelist",
+          "listedValues": [
+            {
+              "value": "storVerdi",
+              "label": "storVerdi"
+            },
+            {
+              "value": "noeVerdi",
+              "label": "noeVerdi"
+            },
+            {
+              "value": "sværtStorVerdi",
+              "label": "sværtStorVerdi"
+            },
+            {
+              "value": "middelsVerdi",
+              "label": "middelsVerdi"
+            }
+          ],
+          "definition": "kategorisering i ulike grader av forvaltningsinteresse. Inndelingen følger av utvalgskriteriene, slik at hvert utvalgskriterium medfører en bestemt forvaltningskategori.",
+          "asDictionary": "false"
+        }
+      },
+      {
+        "name": "norskNavn",
+        "type": "NorskNavn",
+        "description": "Norsk navn på arten",
+        "cardinality": "0..1",
+        "valueDomain": {
+          "kind": "codelist",
+          "definition": "kodelisten eies og vedlikeholdes av Artsdatabanken og er tilgjengelig som tjeneste \"WS_Artsnavnebase\" på http://www2.artsdatabanken.no/artsnavn/Contentpages/Webservices.aspx",
+          "asDictionary": "true"
+        }
+      },
+      {
+        "name": "vitenskapeligNavn",
+        "type": "VitenskapeligNavn",
+        "description": "Vitenskapelig navn",
+        "cardinality": "1",
+        "valueDomain": {
+          "kind": "codelist",
+          "definition": "kodelisten eies og vedlikeholdes av Artsdatabanken og er tilgjengelig som tjeneste \"WS_Artsnavnebase\" på http://www2.artsdatabanken.no/artsnavn/Contentpages/Webservices.aspx",
+          "asDictionary": "true",
+          "codeList": "http://skjema.geonorge.no/SOSI/produktspesifikasjon/ArterNasjonalForvaltningsinteresse-2.0/VitenskapeligNavn"
+        }
+      },
+      {
+        "name": "rødlistekategori",
+        "type": "Rødlistekategori",
+        "description": "statuskoder hentet fra Norsk Rødliste for arter og Fremmedartslista",
+        "cardinality": "0..1",
+        "valueDomain": {
+          "kind": "codelist",
+          "listedValues": [
+            {
+              "value": "Datamangel",
+              "label": "Datamangel"
+            },
+            {
+              "value": "Kritisk truet",
+              "label": "Kritisk truet"
+            },
+            {
+              "value": "Livskraftig",
+              "label": "Livskraftig"
+            },
+            {
+              "value": "Nær truet",
+              "label": "Nær truet"
+            },
+            {
+              "value": "Regionalt utdødd",
+              "label": "Regionalt utdødd"
+            },
+            {
+              "value": "Ikke Vurdert",
+              "label": "Ikke Vurdert"
+            },
+            {
+              "value": "Sterkt truet",
+              "label": "Sterkt truet"
+            },
+            {
+              "value": "Sårbar",
+              "label": "Sårbar"
+            }
+          ],
+          "definition": "statuskoder hentet fra Norsk Rødliste for arter",
+          "asDictionary": "false"
+        }
+      },
+      {
+        "name": "artnasjonalId",
+        "type": "CharacterString",
+        "description": "Ulike kriterier for utvalg",
+        "cardinality": "0..1"
+      },
+      {
+        "name": "maksAntallIndivid",
+        "type": "Integer",
+        "cardinality": "0..1"
+      },
+      {
+        "name": "utvalgskriterier",
+        "type": "UtvalgskriteriumKode",
+        "cardinality": "0..*",
+        "valueDomain": {
+          "kind": "codelist",
+          "listedValues": [
+            {
+              "value": "ansvarsart",
+              "label": "Ansvarsart; Norge har mer enn 25% av arten europeiske bestand"
+            },
+            {
+              "value": "fredet",
+              "label": "Fredet art i medhold av naturmangfoldloven"
+            },
+            {
+              "value": "fremmedArt",
+              "label": "Fremmed art i Fremmedartslista (Artsdatabanken);\nkategoriene Svært høy risiko (SH) og Høy risiko (HI)"
+            },
+            {
+              "value": "prioritert",
+              "label": "Prioritert art i medhold av naturmangfoldloven"
+            },
+            {
+              "value": "annenSpesieltHensynskrevende",
+              "label": "Annen spesielt hensynskrevende art; andre arter av nasjonal forvaltningsinteresse, utvalgt av Miljødirektoratet"
+            },
+            {
+              "value": "spesielleØkologiskeFormer",
+              "label": "Spesiell økologisk form; former eller underarter av arter av nasjonal forvaltningsinteresse som ikke vurderes i rødlisten"
+            },
+            {
+              "value": "nærTruet",
+              "label": "Truet art i Norsk rødliste for arter, Norge (Artsdatabanken); kategoriene Kritisk truet (CR), Sterkt truet (EN) og Sårbar (VU)"
+            },
+            {
+              "value": "hensynskrevende",
+              "label": "hensynskrevende"
+            },
+            {
+              "value": "kritiskTruet",
+              "label": "kritiskTruet"
+            },
+            {
+              "value": "sterktTruet",
+              "label": "sterktTruet"
+            },
+            {
+              "value": "sårbar",
+              "label": "sårbar"
+            },
+            {
+              "value": "datamangel",
+              "label": "datamangel"
+            }
+          ],
+          "definition": "Ulike kriterier for utvalg"
+        }
+      },
+      {
+        "name": "kriterium",
+        "type": "Utvalgskriterium",
+        "cardinality": "0..1",
+        "attributes": [
+          {
+            "name": "ansvarsart",
+            "type": "Boolean",
+            "description": "Ansvarsart; Norge har mer enn 25% av arten europeiske bestand",
+            "cardinality": "0..1",
+            "taggedValues": {
+              "SOSI_navn": "ANSVARSART"
+            }
+          },
+          {
+            "name": "fredet",
+            "type": "Boolean",
+            "description": "Fredet art i medhold av naturmangfoldloven",
+            "cardinality": "0..1",
+            "taggedValues": {
+              "SOSI_navn": "FREDET_ART"
+            }
+          },
+          {
+            "name": "fremmedArt",
+            "type": "Boolean",
+            "description": "Fremmed art i Fremmedartslista (Artsdatabanken);\nkategoriene Svært høy risiko (SH) og Høy risiko (HI)",
+            "cardinality": "0..1",
+            "taggedValues": {
+              "SOSI_navn": "FREMMED_ART"
+            }
+          },
+          {
+            "name": "prioritert",
+            "type": "Boolean",
+            "description": "Prioritert art i medhold av naturmangfoldloven",
+            "cardinality": "0..1",
+            "taggedValues": {
+              "SOSI_navn": "PRIORITERT_ART"
+            }
+          },
+          {
+            "name": "annenSpesieltHensynskrevende",
+            "type": "Boolean",
+            "description": "Annen spesielt hensynskrevende art; andre arter av nasjonal forvaltningsinteresse, utvalgt av Miljødirektoratet",
+            "cardinality": "0..1",
+            "taggedValues": {
+              "SOSI_navn": "SPES_HENSYN_ART"
+            }
+          },
+          {
+            "name": "spesielleØkologiskeFormer",
+            "type": "Boolean",
+            "description": "Spesiell økologisk form; former eller underarter av arter av nasjonal forvaltningsinteresse som ikke vurderes i rødlisten",
+            "cardinality": "0..1"
+          },
+          {
+            "name": "nærTruet",
+            "type": "Boolean",
+            "description": "Truet art i Norsk rødliste for arter, Norge (Artsdatabanken); kategoriene Kritisk truet (CR), Sterkt truet (EN) og Sårbar (VU)",
+            "cardinality": "0..1"
+          },
+          {
+            "name": "hensynskrevende",
+            "type": "Boolean",
+            "cardinality": "0..1"
+          },
+          {
+            "name": "kritiskTruet",
+            "type": "Boolean",
+            "cardinality": "0..1"
+          },
+          {
+            "name": "sterktTruet",
+            "type": "Boolean",
+            "cardinality": "0..1"
+          },
+          {
+            "name": "sårbar",
+            "type": "Boolean",
+            "cardinality": "0..1"
+          },
+          {
+            "name": "datamangel",
+            "type": "Boolean",
+            "cardinality": "0..1"
+          }
+        ]
+      },
+      {
+        "name": "fraMiljødirektoratet",
+        "type": "Boolean",
+        "cardinality": "1"
+      },
+      {
+        "name": "sensitivMaskert",
+        "type": "Boolean",
+        "cardinality": "1"
+      },
+      {
+        "name": "vitenskapeligNavnId",
+        "type": "Integer",
+        "cardinality": "1",
+        "taggedValues": {
+          "SOSI_navn": "TAKSONVITNAVN_ID"
+        }
+      },
+      {
+        "name": "faktaark",
+        "type": "CharacterString",
+        "description": "Lenke til faktaark",
+        "cardinality": "1",
+        "taggedValues": {
+          "SOSI_navn": "FAKTAARK"
+        }
+      }
+    ],
+    "abstract": false,
+    "relationships": {
+      "inheritance": [
+        "Fellesegenskaper_Art"
+      ],
+      "associations": []
+    },
+    "package": "ArterNasjonalForvaltningsinteresse-3.0"
+  },
+  {
+    "name": "Fellesegenskaper_Art",
+    "description": "abstrakt objekt som bærer en rekke egenskaper som er fagområde-uavhengige og kan benyttes for naturtype",
+    "attributes": [
+      {
+        "name": "identifikasjon",
+        "type": "Identifikasjon",
+        "description": "unik identifikasjon av et objekt",
+        "cardinality": "1",
+        "attributes": [
+          {
+            "name": "lokalId",
+            "type": "CharacterString",
+            "description": "lokal identifikator av et objekt\n\nMerknad: Det er dataleverendørens ansvar å sørge for at den lokale identifikatoren er unik innenfor navnerommet.",
+            "cardinality": "1",
+            "taggedValues": {
+              "SOSI_navn": "LOKALID"
+            }
+          },
+          {
+            "name": "navnerom",
+            "type": "CharacterString",
+            "description": "navnerom som unikt identifiserer datakilden til et objekt, anbefales å være en http-URI\n\nEksempel: http://data.geonorge.no/SentraltStedsnavnsregister/1.0\n\nMerknad : Verdien for nanverom vil eies av den dataprodusent som har ansvar for de unike identifikatorene og må være registrert i data.geonorge.no eller data.norge.no",
+            "cardinality": "1",
+            "taggedValues": {
+              "SOSI_navn": "NAVNEROM"
+            }
+          }
+        ]
+      },
+      {
+        "name": "kommune",
+        "type": "Kommunenummer",
+        "description": "nummerering av kommuner i henhold til SSB sin offisielle liste\n\nMerknad: Det presiseres at kommune alltid skal ha 4 siffer, dvs. eventuelt med ledende null. Kommune benyttes for kopling mot en rekke andre registre som også benytter 4 siffer.",
+        "cardinality": "0..*",
+        "valueDomain": {
+          "kind": "codelist",
+          "definition": "nummerering av kommuner i henhold til Statistisk sentralbyrå sin offisielle liste samt et utvalg av utgåtte numre\n\nMerknad: Det presiseres at kommune alltid skal ha 4 sifre, dvs. eventuelt med ledende null. Kommune benyttes for kopling mot en rekke andre registre som også benytter 4 sifre.",
+          "asDictionary": "true",
+          "codeList": "http://register.geonorge.no/sosi-kodelister/kommunenummer.xml"
+        },
+        "taggedValues": {
+          "SOSI_navn": "KOMMUNENUMMER"
+        }
+      },
+      {
+        "name": "datafangstdato",
+        "type": "Date",
+        "cardinality": "0..1",
+        "taggedValues": {
+          "SOSI_navn": "DATAFANGSTDATO"
+        }
+      }
+    ],
+    "abstract": true,
+    "relationships": {
+      "inheritance": [],
+      "associations": []
+    },
+    "package": "ArterNasjonalForvaltningsinteresse-3.0"
+  }
+]
