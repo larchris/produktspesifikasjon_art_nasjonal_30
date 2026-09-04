@@ -1,0 +1,26 @@
+metadataId: 041f1e6e-bdbc-4091-b48f-8a5990f3cc5b
+output_directory: produktspesifikasjon
+product_slug: admenheter
+updated: 2025-01-01
+# 
+#ogc_feature_api: https://kos-pygeoapi.atkv3-dev.kartverket.cloud/collections
+#xmi_url: https://sosi.geonorge.no/svn/SOSI/SOSI Del 3/Statens kartverk/Havnedata_testing.xml
+#include_only_features:
+#  - Uttak
+#
+# scopes: 
+#   - name: datafangst
+#     url: https://sosi.geonorge.no/svn/SOSI/SOSI Del 3/Kommunal- og moderniseringsdepartementet/Arealplan/Arealplan 5.0/PlanleggingIgangsatt.xml
+#     generator: xmi
+#     description: Datamodellen brukes for å legge ved gml filer for planområdet som brukes i tjenesten for varsel om planoppstart.
+#   - name: innsynstjeneste
+#     url: https://plandata.ft.dibk.no/services/planleggingigangsatt/collections
+#     generator: ogc_feature_api
+#     description: Tjeneste for innsyn i planområder som er varslet for planlegging igangsatt.
+#   - name: bergrettigheter
+#     url: https://dirmin.no/kart/server/wfs3/
+#     generator: ogc_feature_api  
+#     description: Tjeneste for innsyn i bergrettigheter.
+#     include_only_features:
+#       - Undersoekelsesrett
+#       - Utvinningsrett

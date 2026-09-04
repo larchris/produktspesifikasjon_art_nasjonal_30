@@ -1,0 +1,556 @@
+name: Generate produktspesifikasjon
+
+permissions:
+  contents: write
+  pull-requests: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      config_path:
+        description: Optional path to a single config YAML in repo root. Leave empty to process all root-level configs.
+        default: ""
+        required: false
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v5
+      - id: set-matrix
+        run: |
+          set -euo pipefail
+          input="${{ github.event.inputs.config_path }}"
+          if [ -n "$input" ]; then
+            paths=("$input")
+          else
+            mapfile -t paths < <(find . -maxdepth 1 -type f -name '*.yml' ! -name '*.schema.yml' -printf '%P\n' | sort)
+          fi
+
+          if [ "${#paths[@]}" -eq 0 ]; then
+            echo "No config.yml files found under produktspesifikasjon/" >&2
+            exit 1
+          fi
+
+          json=$(printf '%s\n' "${paths[@]}" | jq -R . | jq -cs '{config_path: .}')
+          echo "matrix=$json" >> "$GITHUB_OUTPUT"
+
+  produktspesifikasjon:
+    runs-on: ubuntu-latest
+    needs: discover
+    strategy:
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v5
+      - name: Load produktspesifikasjon config
+        id: config
+        env:
+          CONFIG_PATH: ${{ matrix.config_path }}
+        run: |
+          python - <<'PY'
+          import os
+
+          config_path = os.environ["CONFIG_PATH"]
+          workspace = os.getcwd()
+          target = os.path.normpath(os.path.join(workspace, config_path))
+          base = workspace
+
+          try:
+              inside = os.path.commonpath([base, target]) == base
+          except ValueError:
+              inside = False
+          if not inside:
+              raise SystemExit(
+                  f"Config path must stay inside produktspesifikasjon/: {config_path}"
+              )
+
+          try:
+              with open(target, encoding="utf-8") as fh:
+                  lines = fh.readlines()
+          except FileNotFoundError as exc:
+              raise SystemExit(f"Config file not found: {config_path}") from exc
+
+          values = {}
+          list_values = {}
+          current_list_key = None
+          scopes = []
+          in_scopes = False
+          scopes_indent = None
+          current_scope = None
+
+          for raw in lines:
+              line_no_comment = raw.split("#", 1)[0].rstrip("\n")
+              if not line_no_comment.strip():
+                  continue
+
+              # Handle scopes section (list of dicts)
+              if line_no_comment.strip().startswith("scopes:"):
+                  in_scopes = True
+                  scopes_indent = None
+                  current_scope = None
+                  current_list_key = None
+                  continue
+
+              if in_scopes:
+                  raw_line = line_no_comment
+                  indent = len(raw_line) - len(raw_line.lstrip(" "))
+                  if scopes_indent is None and raw_line.lstrip(" ").startswith("- "):
+                      scopes_indent = indent
+                  if scopes_indent is not None and indent < scopes_indent:
+                      # End of scopes list.
+                      if current_scope:
+                          scopes.append(current_scope)
+                          current_scope = None
+                      in_scopes = False
+                  if not in_scopes:
+                      pass  # fall through to normal parsing for this line
+                  else:
+                      content = raw_line.lstrip(" ")
+                      if content.startswith("- "):
+                          if current_scope:
+                              scopes.append(current_scope)
+                          current_scope = {}
+                          content = content[2:]
+                          if ":" in content:
+                              key, value = content.split(":", 1)
+                              key = key.strip()
+                              value = value.strip().strip("'").strip('"')
+                              if key:
+                                  current_scope[key] = value
+                      elif ":" in content and current_scope is not None:
+                          key, value = content.split(":", 1)
+                          key = key.strip()
+                          value = value.strip().strip("'").strip('"')
+                          if key:
+                              current_scope[key] = value
+                      continue
+
+              # Handle simple list items (e.g. include_only_features)
+              lstrip = line_no_comment.lstrip()
+              if lstrip.startswith("- ") and current_list_key:
+                  item = lstrip[2:].strip().strip("'").strip('"')
+                  if item:
+                      list_values.setdefault(current_list_key, []).append(item)
+                  continue
+
+              if ":" not in line_no_comment:
+                  continue
+
+              key, value = line_no_comment.strip().split(":", 1)
+              key = key.strip()
+              value = value.strip().strip("'").strip('"')
+
+              if value == "":
+                  current_list_key = key
+                  list_values.setdefault(key, [])
+                  continue
+
+              current_list_key = None
+              values[key] = value
+
+          if in_scopes and current_scope:
+              scopes.append(current_scope)
+
+          required_map = {
+              "metadataId": "metadata-id",
+              "output_directory": "output-directory",
+              "product_slug": "product-slug",
+              "updated": "updated",
+          }
+          optional_map = {
+              "ogc_feature_api": "ogc-feature-api",
+              "xmi_url": "xmi-model",
+          }
+
+          missing = [
+              k
+              for k in required_map
+              if not values.get(k)
+          ]
+          if missing:
+              raise SystemExit(
+                  "Missing required keys in config.yml: "
+                  + ", ".join(missing)
+              )
+
+          feature_filter = []
+          if list_values.get("include_only_features"):
+              feature_filter = list_values["include_only_features"]
+          elif values.get("include_only_features"):
+              feature_filter = [
+                  item.strip()
+                  for item in values["include_only_features"].split(",")
+                  if item.strip()
+              ]
+
+          # Tilleggsleveranser (outputs: komma-separert skalar, f.eks. "geopackage").
+          selected_outputs = [
+              o.strip()
+              for o in str(values.get("outputs", "")).split(",")
+              if o.strip()
+          ]
+          geopackage_output = "true" if "geopackage" in selected_outputs else "false"
+          odcs_output = "true" if "odcs" in selected_outputs else "false"
+
+          # ldproxy-provider-dialekt: 'postgis' (default) eller 'geopackage'. GeoPackage-
+          # provideren peker på den genererte gpkg-en, så den må da også bygges.
+          ldproxy_provider = str(values.get("ldproxy_provider", "postgis")).strip().lower()
+          if ldproxy_provider not in ("postgis", "geopackage"):
+              ldproxy_provider = "postgis"
+          if "ldproxy" in selected_outputs and ldproxy_provider == "geopackage":
+              geopackage_output = "true"
+
+          # ShapeChange-leveranser: outputs `xsd`/`jsonschema` → ShapeChange-targets
+          # (`xsd`/`json`). Syntetiser namespace fra product_slug (ShapeChange krever
+          # target-namespace — ingen kilde bærer en).
+          import re
+          import unicodedata
+
+          def _slug(text):
+              norm = unicodedata.normalize("NFKD", str(text or ""))
+              ascii_text = norm.encode("ascii", "ignore").decode("ascii")
+              return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+
+          sc_targets = []
+          if "xsd" in selected_outputs:
+              sc_targets.append("xsd")
+          if "jsonschema" in selected_outputs:
+              sc_targets.append("json")
+          if "ldproxy" in selected_outputs:
+              sc_targets.append("ldproxy")
+          shapechange_targets = ",".join(sc_targets)
+          run_shapechange = "true" if shapechange_targets and scopes else "false"
+
+          product_slug = values.get("product_slug", "")
+          _pslug = _slug(product_slug)
+
+          # ShapeChange kjøres én gang per datakilde (scope) i workflowen — bygg en
+          # deskriptor per scope: hvilken feature-katalog, hvor skjemaet skal, og
+          # skjema-identiteten. Filnavnene ({scope}.xsd/.json) matcher {scope}.gpkg.
+          import json as _json
+
+          _out_dir = values.get("output_directory", "produktspesifikasjon")
+          _ver = values.get("schema_version") or "1.0"
+          _single = len(scopes) == 1
+          _user_ns = values.get("target_namespace")
+          _user_schema = values.get("schema_name")
+          _user_xmlns = values.get("xmlns_prefix")
+          _user_jbase = values.get("json_base_uri")
+
+          shapechange_scopes = []
+          if run_shapechange == "true":
+              for _i, _scope in enumerate(scopes, start=1):
+                  _sslug = _slug(_scope.get("name", "")) or f"scope_{_i}"
+                  # Én datakilde med eksplisitt namespace i config → bruk den; ellers
+                  # (og alltid ved flere kilder) syntetiser per scope så de blir unike.
+                  if _single and _user_ns:
+                      _ns = _user_ns
+                  else:
+                      _ns = (
+                          "https://skjema.geonorge.no/SOSI/produktspesifikasjon/"
+                          f"{_pslug}/{_sslug}/{_ver}"
+                      )
+                  _jbase = (
+                      _user_jbase if _single and _user_jbase
+                      else re.sub(r"/[^/]*$", "", _ns)
+                  )
+                  _sname = _user_schema if _single and _user_schema else _sslug
+                  _xmlns = (
+                      _user_xmlns if _single and _user_xmlns
+                      else (_sslug.replace("-", "") or "app")
+                  )
+                  shapechange_scopes.append(
+                      {
+                          "scope_slug": _sslug,
+                          "feature_catalogue": (
+                              f"{_out_dir}/{_pslug}/{_sslug}/{_sslug}_feature_catalogue.json"
+                          ),
+                          "output_dir": f"{_out_dir}/{_pslug}/{_sslug}/schema",
+                          "schema_name": _sname,
+                          "target_namespace": _ns,
+                          "xmlns_prefix": _xmlns,
+                          "schema_version": _ver,
+                          "xsd_document": f"{_sslug}.xsd",
+                          "json_document": f"{_sslug}.json",
+                          "json_base_uri": _jbase,
+                      }
+                  )
+
+          # OGC-pålogging: les kun secret-NAVNene fra config (fra den første
+          # OGC-kilden som har dem). Selve verdien slås opp trygt med secrets[...]
+          # i action-steget under — vi rører ALDRI secret-verdier her, så
+          # workflowen trigger ikke GitHubs «malicious workflow»-varsel.
+          import json
+
+          ogc_username_secret = ""
+          ogc_password_secret = ""
+          for scope in scopes:
+              gen = str(scope.get("generator", "")).strip().lower()
+              if gen in ("ogc_feature_api", "ogc_api", "ogc"):
+                  if not ogc_username_secret and scope.get("username_secret"):
+                      ogc_username_secret = scope["username_secret"]
+                  if not ogc_password_secret and scope.get("password_secret"):
+                      ogc_password_secret = scope["password_secret"]
+          # Fjern secret-navnene fra scopene før de sendes videre.
+          for scope in scopes:
+              scope.pop("username_secret", None)
+              scope.pop("password_secret", None)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as gh_out:
+              if ogc_username_secret:
+                  gh_out.write(f"ogc_username_secret={ogc_username_secret}\n")
+              if ogc_password_secret:
+                  gh_out.write(f"ogc_password_secret={ogc_password_secret}\n")
+              for source, dest in required_map.items():
+                  if values.get(source):
+                      gh_out.write(f"{dest}={values[source]}\n")
+              for source, dest in optional_map.items():
+                  value = values.get(source)
+                  if value:
+                      gh_out.write(f"{dest}={value}\n")
+              if feature_filter:
+                  gh_out.write(
+                      "feature-type-filter="
+                      + ",".join(feature_filter)
+                      + "\n"
+                  )
+              gh_out.write(f"geopackage-output={geopackage_output}\n")
+              gh_out.write(f"odcs-output={odcs_output}\n")
+              # Normalisert slug — produkttreet ligger under denne (samme som
+              # prepare-action-en bruker). Skjema-katalogen henger på her.
+              gh_out.write(f"product-slug-normalized={_pslug}\n")
+              gh_out.write(f"run-shapechange={run_shapechange}\n")
+              gh_out.write(f"shapechange-targets={shapechange_targets}\n")
+              gh_out.write(f"ldproxy-provider={ldproxy_provider}\n")
+              # Per-scope deskriptorer som JSON (kompakt, én linje) — workflowen
+              # looper over disse og kjører ShapeChange én gang per datakilde.
+              gh_out.write(
+                  "shapechange-scopes="
+                  + _json.dumps(shapechange_scopes, ensure_ascii=False)
+                  + "\n"
+              )
+              if scopes:
+                  gh_out.write("scopes=" + json.dumps(scopes) + "\n")
+          PY
+
+      - id: prepare
+        uses: arkitektum/ps.editor.actions@main
+        with:
+          feature-type-filter: ${{ steps.config.outputs.feature-type-filter }}
+          metadata-id: ${{ steps.config.outputs.metadata-id }}
+          ogc-feature-api: ${{ steps.config.outputs.ogc-feature-api }}
+          # Slår opp secret-verdien dynamisk fra navnet i config (single-secret,
+          # ingen toJSON). Faller tilbake på CLIENTID/CLIENTKEY hvis config ikke
+          # oppgir navn (bakoverkompatibelt).
+          ogc-username: ${{ secrets[steps.config.outputs.ogc_username_secret] || secrets.CLIENTID }}
+          ogc-password: ${{ secrets[steps.config.outputs.ogc_password_secret] || secrets.CLIENTKEY }}
+          output-directory: ${{ steps.config.outputs.output-directory }}
+          product-slug: ${{ steps.config.outputs.product-slug }}
+          scopes: ${{ steps.config.outputs.scopes }}
+          updated: ${{ steps.config.outputs.updated }}
+          xmi-model: ${{ steps.config.outputs.xmi-model }}
+          # Skriv også en tom GeoPackage av datamodellen når config har outputs: geopackage.
+          geopackage-output: ${{ steps.config.outputs.geopackage-output }}
+          # Skriv også en ODCS-datakontrakt (.odcs.yaml) når config har outputs: odcs.
+          odcs-output: ${{ steps.config.outputs.odcs-output }}
+
+      # ShapeChange: generer GML/XSD- og/eller JSON Schema når config har
+      # outputs: xsd / jsonschema. Kjøres én gang PER datakilde (scope) i en
+      # bash-løkke — GitHub kan ikke loope et action-steg dynamisk. SCXML-modell +
+      # config lages av run_shapechange.py (scope-agnostisk), JAR-en kjøres her.
+      - name: Checkout ps.editor.actions (ShapeChange-skript)
+        if: steps.config.outputs.run-shapechange == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: arkitektum/ps.editor.actions
+          ref: main
+          path: .psactions
+
+      - uses: actions/setup-python@v6
+        if: steps.config.outputs.run-shapechange == 'true'
+        with:
+          python-version: "3.11"
+
+      - name: Install ShapeChange-skript-avhengigheter
+        if: steps.config.outputs.run-shapechange == 'true'
+        run: pip install requests PyYAML
+
+      - uses: actions/setup-java@v4
+        if: steps.config.outputs.run-shapechange == 'true'
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Cache ShapeChange
+        id: shapechange-cache
+        if: steps.config.outputs.run-shapechange == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/shapechange
+          key: shapechange-4.0.0
+
+      - name: Download ShapeChange
+        if: steps.config.outputs.run-shapechange == 'true' && steps.shapechange-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p ~/shapechange
+          curl -sSL -o /tmp/shapechange.zip \
+            https://github.com/ShapeChange/ShapeChange/releases/download/4.0.0/ShapeChange-4.0.0.zip
+          unzip -q /tmp/shapechange.zip -d ~/shapechange
+
+      - id: shapechange
+        name: Run ShapeChange per datakilde
+        if: steps.config.outputs.run-shapechange == 'true'
+        env:
+          SCOPES_JSON: ${{ steps.config.outputs.shapechange-scopes }}
+          TARGETS: ${{ steps.config.outputs.shapechange-targets }}
+          LDPROXY_PROVIDER: ${{ steps.config.outputs.ldproxy-provider }}
+        run: |
+          set -uo pipefail
+          echo "$SCOPES_JSON" > /tmp/sc_scopes.json
+          run_sc="$GITHUB_WORKSPACE/.psactions/scripts/run_shapechange.py"
+          count=$(jq 'length' /tmp/sc_scopes.json)
+          echo "ShapeChange: $count datakilde(r)"
+          note=""
+          for i in $(seq 0 $((count - 1))); do
+            row=$(jq -c ".[$i]" /tmp/sc_scopes.json)
+            get() { echo "$row" | jq -r "$1"; }
+            sslug=$(get '.scope_slug'); cat=$(get '.feature_catalogue')
+            outdir=$(get '.output_dir'); sname=$(get '.schema_name')
+            ns=$(get '.target_namespace'); xmlns=$(get '.xmlns_prefix')
+            ver=$(get '.schema_version'); xsddoc=$(get '.xsd_document')
+            jsondoc=$(get '.json_document'); jbase=$(get '.json_base_uri')
+            if [ ! -f "$cat" ]; then
+              echo "::warning::ShapeChange: mangler feature-katalog for '$sslug' ($cat) — hopper over"
+              note+="- \`$sslug\`: ingen feature-katalog (hoppet over)"$'\n'
+              continue
+            fi
+            echo "::group::ShapeChange – $sslug"
+            # draft-07: SOSI-klasser har ofte norske navn (f.eks. «Målemetode») som gir
+            # ugyldig $anchor i 2019-09/2020-12. draft-07 unngår det.
+            if ! python "$run_sc" --mode generate \
+                --feature-catalogue "$cat" --output-dir "$outdir" \
+                --schema-name "$sname" --target-namespace "$ns" \
+                --xmlns-prefix "$xmlns" --schema-version "$ver" \
+                --xsd-document "$xsddoc" --json-document "$jsondoc" \
+                --json-base-uri "$jbase" --json-schema-version draft-07 \
+                --targets "$TARGETS"; then
+              echo "::warning::ShapeChange: klarte ikke å bygge modell for '$sslug' — hopper over"
+              note+="- \`$sslug\`: modell-bygging feilet"$'\n'
+              echo "::endgroup::"; continue
+            fi
+            cfg="$GITHUB_WORKSPACE/$outdir/shapechange-config.xml"
+            # JAR-en må kjøres fra distribusjonsroten (bundled include-referanser).
+            ( cd ~/shapechange && java -Dfile.encoding=UTF-8 -jar ShapeChange-4.0.0.jar -c "$cfg" ) \
+              || echo "::warning::ShapeChange: JAR avbrøt for '$sslug'"
+            python "$run_sc" --mode check --output-dir "$outdir" --fail-on-error false \
+              | tee /tmp/sc_check.txt
+            errs=$(grep -oE 'with [0-9]+ error' /tmp/sc_check.txt | grep -oE '[0-9]+' || echo 0)
+            warns=$(grep -oE '[0-9]+ warning' /tmp/sc_check.txt | grep -oE '[0-9]+' || echo 0)
+            note+="- \`$sslug\`: ${errs:-0} feil, ${warns:-0} advarsler"$'\n'
+            # Valgt ldproxy-dialekt: skriv om provideren til GeoPackage (peker på den
+            # genererte gpkg-en) når brukeren har valgt det. 'postgis' er no-op.
+            if [ "${LDPROXY_PROVIDER:-postgis}" = "geopackage" ]; then
+              python "$run_sc" --mode ldproxy-provider --output-dir "$outdir" \
+                --ldproxy-provider geopackage \
+                || echo "::warning::ldproxy: klarte ikke skrive GeoPackage-provider for '$sslug'"
+            fi
+            echo "::endgroup::"
+          done
+          {
+            echo "text<<SCEOF"
+            echo "**ShapeChange-skjemaer (per datakilde):**"
+            printf '%s' "$note"
+            echo "SCEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Render UML to PNG
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y plantuml graphviz
+          set -euo pipefail
+          root="${{ steps.config.outputs.output-directory }}"
+          if [ -z "$root" ]; then
+            echo "No output directory set; skipping PlantUML render."
+            exit 0
+          fi
+          if [ ! -d "$root" ]; then
+            echo "Output directory not found: $root"
+            exit 0
+          fi
+          mapfile -t files < <(find "$root" -type f -name '*.puml' | sort)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No .puml files found under $root"
+            exit 0
+          fi
+          for file in "${files[@]}"; do
+            if [ "${file:0:1}" != "/" ]; then
+              file="$PWD/$file"
+            fi
+            if [ ! -s "$file" ]; then
+              echo "Skipping PlantUML render; file missing or empty: $file"
+              continue
+            fi
+            if ! grep -q "@startuml" "$file"; then
+              echo "Skipping PlantUML render; no diagram found in: $file"
+              continue
+            fi
+            output_dir="$(dirname "$file")"
+            plantuml -tpng -output "$output_dir" "$file"
+          done
+
+      - name: Derive PNG path
+        if: steps.prepare.outputs.feature-catalogue-uml != ''
+        id: feature-png
+        run: |
+          png="${{ steps.prepare.outputs.feature-catalogue-uml }}"
+          png="${png%.puml}.png"
+          echo "path=$png" >> "$GITHUB_OUTPUT"
+
+      - name: Derive XMI PNG path
+        if: steps.prepare.outputs.xmi-feature-catalogue-uml != ''
+        id: xmi-feature-png
+        run: |
+          png="${{ steps.prepare.outputs.xmi-feature-catalogue-uml }}"
+          png="${png%.puml}.png"
+          echo "path=$png" >> "$GITHUB_OUTPUT"
+
+      - id: assemble
+        uses: arkitektum/ps.editor.actions/assemble@main
+        with:
+          psdata-path: ${{ steps.prepare.outputs.psdata-path }}
+          output-path: ${{ steps.prepare.outputs.spec-markdown }}
+          feature-catalogue-markdown: ${{ steps.prepare.outputs.feature-catalogue-markdown }}
+          feature-catalogue-uml: ${{ steps.prepare.outputs.feature-catalogue-uml }}
+          feature-catalogue-png: ${{ steps.feature-png.outputs.path }}
+          xmi-feature-catalogue-markdown: ${{ steps.prepare.outputs.xmi-feature-catalogue-markdown }}
+          xmi-feature-catalogue-uml: ${{ steps.prepare.outputs.xmi-feature-catalogue-uml }}
+          xmi-feature-catalogue-png: ${{ steps.xmi-feature-png.outputs.path }}
+          updated: ${{ steps.config.outputs.updated }}
+          # Raw-lenker til de genererte output-filene (GeoPackage/skjema) i Leveranse-tabellen.
+          # Peker på default-branchen, der filene ligger etter at PR-en er merget.
+          repo-raw-base: https://raw.githubusercontent.com/${{ github.repository }}/${{ github.event.repository.default_branch }}
+      - name: Inspect generated files
+        run: |
+          echo "Markdown: ${{ steps.prepare.outputs.spec-markdown }}"
+          echo "psdata:  ${{ steps.prepare.outputs.psdata-path }}"
+      - name: Create pull request with produktspesifikasjon
+        uses: peter-evans/create-pull-request@v8
+        with:
+          commit-message: update produktspesifikasjon
+          title: update produktspesifikasjon
+          branch: update-produktspesifikasjon
+          branch-suffix: timestamp
+          delete-branch: true
+          add-paths: |
+            ${{ steps.config.outputs.output-directory }}/
+            ${{ steps.prepare.outputs.psdata-path }}
+          body: |
+            This pull request was automatically generated by the **Generate produktspesifikasjon** workflow.
+
+            - Config file: `${{ matrix.config_path }}`
+            - Generated markdown: `${{ steps.prepare.outputs.spec-markdown }}`
+            - Generated psdata: `${{ steps.prepare.outputs.psdata-path }}`
+            ${{ steps.shapechange.outputs.text }}

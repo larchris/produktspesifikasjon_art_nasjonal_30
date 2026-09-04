@@ -1,0 +1,63 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+title: ProductSpecificationConfig
+type: object
+additionalProperties: false
+required:
+  - metadataId
+  - output_directory
+  - product_slug
+  - updated
+properties:
+  metadataId:
+    type: string
+    format: uuid
+    description: Unik identifikator for produktet (UUID brukt i metadata på geonorge)
+  output_directory:
+    type: string
+    minLength: 1
+    description: Katalog der generert produktinnhold skal skrives
+  product_slug:
+    type: string
+    minLength: 1
+    description: Kort navn/slug for produktet, brukes i fil- og URL-stier
+  updated:
+    type: string
+    pattern: '^\\d{4}-\\d{2}-\\d{2}$'
+    description: Siste oppdateringsdato i formatet YYYY-MM-DD
+  ogc_feature_api:
+    type: string
+    format: uri
+    description: (Valgfri) globalt OGC API Features-endepunkt for produktet (hele datasettet)
+  xmi_url:
+    type: string
+    format: uri
+    description: (Valgfri) global XMI-kilde for produktet (hele datasettet)
+  scopes:
+    type: array
+    minItems: 0
+    description: Liste over forskjellige omfang (f.eks. datafangst, innsynstjeneste) med egne URL-er/generatorer
+    items:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - url
+        - generator
+        - description
+      properties:
+        name:
+          type: string
+          description: Navn på scopet (må være unikt innen listen)
+        url:
+          type: string
+          format: uri
+          description: Endepunkt/ressurs for scopet (XMI eller OGC API)
+        generator:
+          type: string
+          enum:
+            - xmi
+            - ogc_feature_api
+          description: Angir hvilken generator som skal brukes for scopet og angitt url
+        description:
+          type: string
+          description: Kort beskrivelse av hva scopet dekker og brukes til
