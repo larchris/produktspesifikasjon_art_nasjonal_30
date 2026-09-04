@@ -1,0 +1,9 @@
+metadataId: a8456aed-441a-40c4-831f-46bcbe4e6ff1
+output_directory: produktspesifikasjon
+product_slug: arter_av_nasjonal_forvaltningsinteresse
+updated: '2026-09-04'
+scopes:
+- name: Ny datakilde
+  url: https://sosi.geonorge.no/svn/SOSI/SOSI%20Del%203/Miljodirektoratet/ArterNasjonalForvaltningsinteresse_3_0.xml
+  generator: xmi
+  description: ''
